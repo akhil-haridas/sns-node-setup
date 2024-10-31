@@ -2,8 +2,19 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const AWS = require("aws-sdk");
 const webPush = require("web-push");
+const cors = require('cors'); // Import CORS
 
 const app = express();
+
+// Configure CORS options
+const corsOptions = {
+    origin: 'http://localhost:3000', // Allow only this origin
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
+};
+
+// Use CORS middleware with options
+app.use(cors(corsOptions));
 app.use(bodyParser.json());
 
 AWS.config.update({ region: "us-east-1" }); // Set your AWS region
@@ -24,7 +35,7 @@ webPush.setVapidDetails(
 app.post("/subscribe", async (req, res) => {
     const { endpoint } = req.body;
     const params = {
-        Protocol: "https",
+        Protocol: "http",
         TopicArn: topicArn,
         Endpoint: endpoint,
     };
