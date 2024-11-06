@@ -1,65 +1,66 @@
 const express = require("express");
-const bodyParser = require("body-parser");
-const AWS = require("aws-sdk");
 const webPush = require("web-push");
-const cors = require('cors'); // Import CORS
+const http = require("http");
+const socketIo = require("socket.io");
 
+// Setup Express server
 const app = express();
+const server = http.createServer(app);
+const io = socketIo(server);
 
-// Configure CORS options
-const corsOptions = {
-    origin: 'http://localhost:3000', // Allow only this origin
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    credentials: true,
-};
+// Body parser for JSON requests
+app.use(express.json());
 
-// Use CORS middleware with options
-app.use(cors(corsOptions));
-app.use(bodyParser.json());
-
-AWS.config.update({ region: "us-east-1" }); // Set your AWS region
-const sns = new AWS.SNS();
-
-const topicArn = "arn:aws:sns:us-east-1:637423239254:RukkorNotification";
-const vapidPublicKey = "BE2horS7WnET4R7_vN5X0GxQBXTpps3_023v2z_N4E9Q5VF-yvrpF5uOZ4f7CIjKhSDnTme_UtDAZZXBKAdlCwI";
-const vapidPrivateKey = "UOV9-3R9sHYcypJapB5xV9zt-AjsTHf0F5iHoRFnnHc";
-
-// Configure VAPID keys
+// VAPID keys for Web Push API (you can generate your own keys)
+const publicVapidKey = "YOUR_PUBLIC_VAPID_KEY";
+const privateVapidKey = "YOUR_PRIVATE_VAPID_KEY";
 webPush.setVapidDetails(
-    "mailto:akhil.k@dignizant.com",
-    vapidPublicKey,
-    vapidPrivateKey
+  "mailto:example@yourdomain.com",
+  publicVapidKey,
+  privateVapidKey
 );
 
-// Endpoint to subscribe user
-app.post("/subscribe", async (req, res) => {
-    const { endpoint } = req.body;
-    const params = {
-        Protocol: "http",
-        TopicArn: topicArn,
-        Endpoint: endpoint,
-    };
-    try {
-        const subscription = await sns.subscribe(params).promise();
-        res.json({ message: "Subscribed successfully", subscription });
-    } catch (error) {
-        res.status(500).json({ error: "Subscription failed" });
-    }
+let subscriptions = []; // Store user subscriptions (in-memory for simplicity)
+
+// Route to handle subscription
+app.post("/subscribe", (req, res) => {
+  const subscription = req.body;
+  subscriptions.push(subscription);
+  res.status(201).json({});
 });
 
-// Endpoint to send notifications
-app.post("/send-notification", async (req, res) => {
-    const message = req.body.message || "Hello from AWS SNS!";
-    const params = {
-        Message: message,
-        TopicArn: topicArn,
-    };
-    try {
-        await sns.publish(params).promise();
-        res.json({ message: "Notification sent!" });
-    } catch (error) {
-        res.status(500).json({ error: "Failed to send notification" });
-    }
+// Function to send push notifications
+const sendPushNotification = (subscription, message) => {
+  webPush
+    .sendNotification(subscription, message)
+    .catch((err) => console.error(err));
+};
+
+// WebSocket for real-time chat messages
+io.on("connection", (socket) => {
+  console.log("a user connected");
+
+  socket.on("chatMessage", (msg) => {
+    io.emit("chatMessage", msg); // Emit the message to all clients
+
+    // Send a push notification if there are active subscriptions
+    subscriptions.forEach((sub) => {
+      const message = JSON.stringify({
+        title: "New Chat Message",
+        body: msg,
+        icon: "/path-to-icon.png", // Replace with an actual icon URL
+      });
+      sendPushNotification(sub, message);
+    });
+  });
+
+  socket.on("disconnect", () => {
+    console.log("a user disconnected");
+  });
 });
 
-app.listen(4000, () => console.log("Server running on http://localhost:4000"));
+// Start the server
+const PORT = 5000;
+server.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
