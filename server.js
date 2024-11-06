@@ -11,14 +11,14 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
     cors: {
-        origin: 'http://localhost:3000', // Allow connections from your React app
+        origin: 'https://supabase-chat-ivory.vercel.app',
         methods: ['GET', 'POST'],
         allowedHeaders: ['Content-Type']
     }
 });
 
 app.use(cors({
-    origin: 'http://localhost:3000', // Allow requests from your React app
+    origin: 'https://supabase-chat-ivory.vercel.app',
     methods: ['GET', 'POST'],
     allowedHeaders: ['Content-Type']
 }));
@@ -27,8 +27,8 @@ app.use(cors({
 app.use(express.json());
 
 // VAPID keys for Web Push API (you can generate your own keys)
-const publicVapidKey = process.env.PUBLIC_VAPID_KEY;
-const privateVapidKey = process.env.PRIVATE_VAPID_KEY;
+const publicVapidKey = process.env.PUBLIC_VAPID_KEY || "BJ4EwHWUsuUNRgHRn_bgNtjXAhIlGZeXtmQB9JdjTHinygmzIGBl9GYIih09IotP3v7k3qESo9RVh825jXUHSZg";
+const privateVapidKey = process.env.PRIVATE_VAPID_KEY || "E7602w8Nll6W3BHVIrnDJKYwC4jiLOh2A44_b8maScE";
 
 webPush.setVapidDetails(
     "mailto:akhil.k@dignizant.com",
