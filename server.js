@@ -11,14 +11,14 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
     cors: {
-        origin: 'https://supabase-chat-ivory.vercel.app',
+        origin: 'http://localhost:5173',
         methods: ['GET', 'POST'],
         allowedHeaders: ['Content-Type']
     }
 });
 
 app.use(cors({
-    origin: 'https://supabase-chat-ivory.vercel.app',
+    origin: 'http://localhost:5173',
     methods: ['GET', 'POST'],
     allowedHeaders: ['Content-Type']
 }));
