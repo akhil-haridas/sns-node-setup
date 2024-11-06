@@ -10,10 +10,13 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "aws-sdk": "^2.1691.0",
     "body-parser": "^1.20.3",
     "cors": "^2.8.5",
     "express": "^4.21.1",
+    "socket.io": "^4.8.1",
     "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7"
   }
 }
