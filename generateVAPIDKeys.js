@@ -1,4 +1,3 @@
-// generateVAPIDKeys.js
 const webPush = require('web-push');
 
 const vapidKeys = webPush.generateVAPIDKeys();
