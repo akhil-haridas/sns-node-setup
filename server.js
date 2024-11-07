@@ -1,94 +1,87 @@
 require('dotenv').config();
-
 const express = require("express");
-const cors = require('cors');
-const webPush = require("web-push");
 const http = require("http");
+const cors = require('cors');
 const socketIo = require("socket.io");
+const connectDB = require('./config/database');
+const subscriptionRoutes = require('./routes/subscriptionRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const { errorHandler } = require('./utils/errorHandler');
+const subscriptionModel = require('./model/subscriptionModel');
+const { sendPushNotification } = require('./service/pushNotificationService');
 
-// Setup Express server
+// Initialize the app
 const app = express();
 const server = http.createServer(app);
+
+// MongoDB connection
+connectDB();
+
+// Setup Socket.io
 const io = socketIo(server, {
     cors: {
-        origin: 'https://supabase-chat-ivory.vercel.app',
+        origin: ['https://supabase-chat-ivory.vercel.app', 'https://dev.app.rukkor.com', 'http://localhost:3000'],
         methods: ['GET', 'POST'],
         allowedHeaders: ['Content-Type']
     }
 });
 
 app.use(cors({
-    origin: 'https://supabase-chat-ivory.vercel.app',
+    origin: ['https://supabase-chat-ivory.vercel.app', 'https://dev.app.rukkor.com', 'http://localhost:3000'],
     methods: ['GET', 'POST'],
     allowedHeaders: ['Content-Type']
 }));
 
-// Body parser for JSON requests
+
+
+// Middleware
 app.use(express.json());
 
-// VAPID keys for Web Push API (you can generate your own keys)
-const publicVapidKey = process.env.PUBLIC_VAPID_KEY || "BJ4EwHWUsuUNRgHRn_bgNtjXAhIlGZeXtmQB9JdjTHinygmzIGBl9GYIih09IotP3v7k3qESo9RVh825jXUHSZg";
-const privateVapidKey = process.env.PRIVATE_VAPID_KEY || "E7602w8Nll6W3BHVIrnDJKYwC4jiLOh2A44_b8maScE";
+// Routes
+app.use('/subscribe', subscriptionRoutes);
+app.use('/api', notificationRoutes);
 
-webPush.setVapidDetails(
-    "mailto:akhil.k@dignizant.com",
-    publicVapidKey,
-    privateVapidKey
-);
+// Error handling middleware
+app.use(errorHandler);
 
-let subscriptions = []; // Store user subscriptions (in-memory for simplicity)
-
-// Route to handle subscription
-app.post("/subscribe", (req, res) => {
-    console.log("api called subscription")
-    const subscription = req.body;
-    subscriptions.push(subscription);
-    res.status(201).json({});
-});
-
-// Function to send push notifications
-const sendPushNotification = (subscription, message) => {
-    webPush.sendNotification(subscription, message)
-        .then(response => {
-            console.log("Notification sent successfully", response);
-        })
-        .catch(err => {
-            if (err.statusCode === 410) {
-                console.log("Subscription has expired or is invalid.");
-                // Remove the expired subscription from your database
-                // Example: db.removeSubscription(subscription.endpoint);
-            } else {
-                console.error("Error sending notification:", err);
-            }
-        });
-};
-
-// WebSocket for real-time chat messages
+// Socket.io logic for real-time messaging
 io.on("connection", (socket) => {
-    console.log("a user connected");
+    // console.log("A user connected");
 
-    socket.on("chatMessage", (msg) => {
-        console.log("new message",subscriptions)
-        io.emit("chatMessage", msg); // Emit the message to all clients
-
-        // Send a push notification if there are active subscriptions
-        subscriptions.forEach((sub) => {
-            const message = JSON.stringify({
-                title: "New Chat Message",
-                body: msg,
-                icon: "/path-to-icon.png", // Replace with an actual icon URL
+    socket.on("chatMessage", async (data) => {
+        console.log("message:",data)// Broadcast message to all clients
+        const { message, userId, spaceId } = data;
+        try {
+            // Find subscriptions for the same groupId, but exclude the userId of the sender
+            const subscriptions = await subscriptionModel.find({
+                userId: { $ne: userId } // Exclude the current user's subscription
             });
-            sendPushNotification(sub, message);
-        });
+
+            // Send push notifications to all relevant subscriptions
+            subscriptions.forEach((sub) => {
+                const messagePayload = JSON.stringify({
+                    title: "New Chat Message",
+                    body: message,
+                    icon: "/path-to-icon.png", // Specify the notification icon path
+                });
+                sendPushNotification(sub, messagePayload);
+            });
+
+        } catch (err) {
+            console.error("Error fetching subscriptions:", err);
+        }
+
+        // Here you can send push notifications to relevant users
+        // using logic from the notification controller (or directly from socket event)
     });
 
     socket.on("disconnect", () => {
-        console.log("a user disconnected");
+        console.log("A user disconnected");
     });
 });
 
-// Start the server
-const PORT = 5000;
+// Start server
+const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });
