@@ -48,9 +48,19 @@ app.post("/subscribe", (req, res) => {
 
 // Function to send push notifications
 const sendPushNotification = (subscription, message) => {
-    webPush
-        .sendNotification(subscription, message)
-        .catch((err) => console.error(err));
+    webPush.sendNotification(subscription, message)
+        .then(response => {
+            console.log("Notification sent successfully", response);
+        })
+        .catch(err => {
+            if (err.statusCode === 410) {
+                console.log("Subscription has expired or is invalid.");
+                // Remove the expired subscription from your database
+                // Example: db.removeSubscription(subscription.endpoint);
+            } else {
+                console.error("Error sending notification:", err);
+            }
+        });
 };
 
 // WebSocket for real-time chat messages
